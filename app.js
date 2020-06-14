@@ -109,6 +109,10 @@ app.put("/api/todo", (rq, rs) => {
   });
 });
 
+app.get("/bookmark", (rq, rs) => {
+  rs.sendFile("bookmark.html");
+});
+
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
   next(createError(404));
