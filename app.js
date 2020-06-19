@@ -17,6 +17,13 @@ const client = new MongoClient(dbURL, {
   useNewUrlParser: true,
 });
 
+let collection;
+client.connect((error) => {
+  assert.equal(null, error);
+
+  collection = client.db("todo").collection("list");
+});
+
 var app = express();
 
 // view engine setup
@@ -36,81 +43,53 @@ app.get("/", (rq, rs) => {
 });
 
 app.get("/api/todo", (rq, rs) => {
-  client.connect((error) => {
+  const done = rq.query.done ? true : false;
+
+  collection.find({ isDone: done }).toArray((error, result) => {
     assert.equal(null, error);
-
-    const collection = client.db("todo").collection("list");
-
-    const done = rq.query.done ? true : false;
-
-    collection.find({ isDone: done }).toArray((error, result) => {
-      assert.equal(null, error);
-      rs.status(200).send(result);
-    });
+    rs.status(200).send(result);
   });
 });
 
 app.post("/api/todo", (rq, rs) => {
-  client.connect((error) => {
-    assert.equal(null, error);
+  collection.insertOne(
+    { title: rq.body.title, time: Date.now(), isDone: false },
+    (error, result) => {
+      assert.equal(null, error);
+      assert.equal(1, result.result.n);
+      assert.equal(1, result.ops.length);
 
-    const collection = client.db("todo").collection("list");
-
-    collection.insertOne(
-      { title: rq.body.title, time: Date.now(), isDone: false },
-      (error, result) => {
-        assert.equal(null, error);
-        assert.equal(1, result.result.n);
-        assert.equal(1, result.ops.length);
-
-        rs.status(200).send({ ...result.ops[0] });
-      }
-    );
-  });
+      rs.status(200).send({ ...result.ops[0] });
+    }
+  );
 });
 
 app.delete("/api/todo", (rq, rs) => {
-  client.connect((error) => {
+  collection.deleteOne({ _id: ObjectID(rq.body.id) }, (error, result) => {
     assert.equal(null, error);
+    assert.equal(1, result.result.n);
 
-    const collection = client.db("todo").collection("list");
-
-    collection.deleteOne({ _id: ObjectID(rq.body.id) }, (error, result) => {
-      assert.equal(null, error);
-      assert.equal(1, result.result.n);
-
-      rs.status(200).send();
-    });
+    rs.status(200).send();
   });
 });
 
 app.put("/api/todo", (rq, rs) => {
-  client.connect((error) => {
-    assert.equal(null, error);
-
-    const collection = client.db("todo").collection("list");
-
-    collection.updateOne(
-      { _id: ObjectID(rq.body.id) },
-      {
-        $set: {
-          title: rq.body.title,
-          isDone: rq.body.isDone,
-          timeDone: Date.now(),
-        },
+  collection.updateOne(
+    { _id: ObjectID(rq.body.id) },
+    {
+      $set: {
+        title: rq.body.title,
+        isDone: rq.body.isDone,
+        timeDone: Date.now(),
       },
-      function (err, result) {
-        assert.equal(err, null);
-        assert.equal(1, result.result.n);
+    },
+    function (err, result) {
+      assert.equal(err, null);
+      assert.equal(1, result.result.n);
 
-        rs.status(200).send();
-      }
-    );
-  });
-});
-
-app.get("/bookmark", (rq, rs) => {
-  rs.sendFile("bookmark.html");
+      rs.status(200).send();
+    }
+  );
 });
 
 // catch 404 and forward to error handler
